@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Upload</title>
+    <link rel="stylesheet" href="style.css">
+
+</head>
+<body>
+    <div id="upload_menu" class="upload_menu">
+        <section class="upload_text">
+            <h2 class="upload_photos">Upload Photos</h2>
+            <p class="upload_photos_description">Upload selfies, memes, or any fun pictures here.</p>
+
+        </section>
+        <nav class="button_div">
+            <button class="upload_form_button" id="upload-btn">Upload</button>
+            <a href="images.html" class="image_url">
+                <button class="images_form_button" id="images-btn">Images</button>
+                </a>
+
+        </nav>
+        <section class="upload_form">
+            <div class="upload_drog_zone" id="upload-drog-zone">
+                <img class="upload_form_image" src="/Photo/cloud.png" alt="cloud">
+                <h3 class="upload_form_title">Select a file or drag and drop here</h3>
+            </div>
+            <div class="drag_drop_text">
+
+                <p>Only support .jpg, .png, and gift.</p>
+                <p>Maximum file size is 5MB</p>
+            </div>
+
+        </section>
+        <div class="button_drag_div">
+            <input class="file-upload" id="file-upload" type="file" accept="image/*" style="display: none" multiple/>
+            <label for="file-upload" class="browse_form_button">BROWSE YOUR FILE</label>
+        </div>
+        <section class="url">
+            <form action="/" method="post" enctype="multipart/form-data">
+                <h2 class="url_title">Current Upload</h2>
+                <div class="url_label">
+                    <label for="url_input">
+                        <input type="text" class="url_input" placeholder="https://" readonly id="url_input"></label>
+                    <button class="url_submit_button">COPY</button>
+                </div>
+            </form>
+        </section>
+    </div>
+</body>
+</html>
