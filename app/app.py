@@ -21,7 +21,7 @@ class MyServer(BaseHTTPRequestHandler):
 
 def run():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    server_address = ('localhost', 8000)
+    server_address = ('0.0.0.0', 8000)
     httpd = HTTPServer(server_address, MyServer)
     logging.info('Starting httpd on port 8000...\n')
     try:
