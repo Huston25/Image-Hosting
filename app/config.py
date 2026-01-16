@@ -1,0 +1,17 @@
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+DB_CONFIG = {
+    "host": os.getenv("POSTGRES_HOST"),
+    "port": os.getenv("POSTGRES_PORT"),
+    "user": os.getenv("POSTGRES_USER"),
+    "password": os.getenv("POSTGRES_PASSWORD"),
+    "dbname": os.getenv("POSTGRES_DB"),
+}
+
+FILE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif"]
+MAX_FILE_SIZE = 5 * 1024 * 1024
+HOST, PORT = ("0.0.0.0", 8000)
+DEBUG = True

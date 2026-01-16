@@ -1,29 +1,18 @@
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import HTTPServer
 import logging
 
-class MyServer(BaseHTTPRequestHandler):
-    def do_GET(self):
-        # logging.info("GET request,\nPath: %s\nHeaders:\n%s\n", str(self.path), str(self.headers))
-        self.send_response(200)
-        self.send_header("Content-type", "text/html")
-        self.end_headers()
-        self.wfile.write("<html><body><h1>Hello, World!</h1></body></html>".encode())
+from config import HOST, PORT
+from database import create_tables
+from http_handler import MyServer
 
-    def do_POST(self):
-        # content_length = int(self.headers['Content-Length'])
-        # post_data = self.rfile.read(content_length)
-        # logging.info("POST request,\nPath: %s\nHeaders:\n%s\n\nBody:\n%s\n",
-        #              str(self.path), str(self.headers), post_data.decode('utf-8'))
-        # self.send_response(200)
-        # self.end_headers()
-        # self.wfile.write(b"POST request received")
-        pass
 
 def run():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    server_address = ('0.0.0.0', 8000)
-    httpd = HTTPServer(server_address, MyServer)
-    logging.info('Starting httpd on port 8000...\n')
+
+    create_tables()
+
+    httpd = HTTPServer((HOST, PORT), MyServer)
+    logging.info(f'Starting httpd on {HOST}: {PORT}...\n')
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
