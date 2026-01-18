@@ -1,16 +1,19 @@
+import http
 import json
 import urllib
 from http.server import BaseHTTPRequestHandler
 import logging
 import urllib.parse
 
-from app.database import delete_metadata
-from database import get_image_metadata, get_metadata
+from database import save_metadata
+from utils import generate_uniqname
+from utils import save_file, validate_image, delete_file
+from database import get_image_metadata, get_metadata, delete_metadata
 
 logging  = logging.getLogger(__name__)
 
-class MyServer(BaseHTTPRequestHandler):
-    server_version = 'ImageHisting/0.1'
+class MyServer(http.server.BaseHTTPRequestHandler):
+    server_version = 'ImageHosting/0.1'
 
 
 
@@ -21,13 +24,25 @@ class MyServer(BaseHTTPRequestHandler):
 
 
         if parsed_path.path == '/images':
-            self.send_json(get_image_metadata())
+            images = get_image_metadata()
+            images = [
+                {
+                    'filename': i[1],
+                    'original_name': i[2],
+                    'size': i[3],
+                    'date': i[4].strftime('%Y-%m-%d %H:%M:%S'),
+                    'type': i[5]
+                }
+                for i in images
+            ]
+
+
+
+            self.send_json(images)
         elif parsed_path.path.startswith('/images/'):
-            image_id = parsed_path.path.split('/')[2]
-            if not image_id.isdigit():
-                self.send_json({'error': 'Invalid image ID'}, 404)
+            filename = parsed_path.path.split('/')[2]
             try:
-                data = get_metadata(image_id)
+                data = get_metadata(filename)
                 self.send_json(data)
             except Exception as e:
                 self.send_json({'error': str(e)}, 404)
@@ -37,31 +52,55 @@ class MyServer(BaseHTTPRequestHandler):
 
 
     def do_POST(self):
-        # content_length = int(self.headers['Content-Length'])
-        # post_data = self.rfile.read(content_length)
-        # try:
-        #     data = json.loads(post_data)
-        #     response_message = f"Received POST data: {data}"
-        # except json.JSONDecodeError as e:
-        #     response_message = f"Received POST data: {post_data}"
-        # # logging.info("POST request,\nPath: %s\nHeaders:\n%s\n\nBody:\n%s\n",
-        # #              str(self.path), str(self.headers), post_data.decode('utf-8'))
-        # self.send_response(200)
-        # self.end_headers()
-        # response = {"status":"success", "message": response_message}
-        # self.wfile.write(json.dumps(response).encode())
-        pass
+        parsed_path = urllib.parse.urlparse(self.path)
+        logging.info(f"POST request, path: %s", parsed_path)
+
+
+        if parsed_path.path == '/upload':
+            content_length = int(self.headers.get('Content-Length', 0))
+            filename = self.headers.get('FileName', '')
+
+            if content_length == 0:
+                return self.send_json({'error': 'No content'}, 404)
+
+
+            if not filename:
+                return self.send_json({'error': 'No filename provided'}, 400)
+
+
+            *filename, ext = filename.split('.')
+            filename = '.'.join(filename)
+            post_data = self.rfile.read(content_length)
+
+            try:
+                validate_image(post_data, ext)
+            except Exception as e:
+                return self.send_json({'error': str(e)}, 400)
+
+            uniqname = f'{generate_uniqname(filename)}.{ext}'
+
+            save_file(uniqname, post_data)
+
+            save_metadata(filename, f'{filename}.{ext}', content_length // 1024, ext)
+
+
+
+            return self.send_json({'result': 'success'}, 201)
+
+        else:
+            return self.send_json({'error': 'Not Found'}, 404)
+
+
     def do_DELETE(self):
         """Handle a DELETE request"""
         parsed_path = urllib.parse.urlparse(self.path)
         logging.info(f'Received DELETE request, path = {parsed_path.path}')
 
         if self.path.startswith('/images'):
-            image_id = parsed_path.path.split('/')[2]
-            if not image_id.isdigit():
-                self.send_json({}, 404)
+            filename = parsed_path.path.split('/')[2]
             try:
-                delete_metadata(image_id)
+                delete_file(filename)
+                delete_metadata(filename)
                 self.send_json({"message": "Image Deleted"}, 204)
             except Exception as e:
                 self.send_json({'error': str(e)}, 404)
