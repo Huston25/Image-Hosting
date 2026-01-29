@@ -61,26 +61,29 @@ def save_metadata(filename, original_name, size, file_type):
     log_fail = 'Failed to save image'
     execute_query(query, log_success, log_fail, (filename, original_name, size, file_type))
 
-def delete_metadata(image_id):
+def delete_metadata(filename):
     query = """
-        DELETE FROM images WHERE id = %s
+        DELETE FROM images WHERE filename = %s
     """
     log_success = 'Image deleted successfully'
     log_fail = 'Failed to delete image'
-    execute_query(query,log_success, log_fail, (image_id,))
+    execute_query(query,log_success, log_fail, (filename,))
 
 
-def get_image_metadata() -> list:
+def get_image_metadata(page=1, page_size=10) -> list:
+
+    offset = (page - 1) * page_size
+
     query = """
-    SELECT * FROM images
+    SELECT * FROM images ORDER BY upload_time DESC LIMIT %s OFFSET %s;
     """
-    return fetch_query(query)
+    return fetch_query(query,(page_size, offset))
 
-def get_metadata(image_id) -> list:
+def get_metadata(filename) -> list:
     query = """
-        SELECT * FROM images WHERE id = %s
+        SELECT * FROM images WHERE filename = %s
     """
-    result = fetch_query(query, image_id)
+    result = fetch_query(query, (filename,))
     if not result:
-        raise Exception(f'Failed to fetch metadata for image {image_id}')
+        raise Exception(f'Failed to fetch metadata for image {filename}')
     return result[0]

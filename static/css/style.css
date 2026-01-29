@@ -290,8 +290,10 @@ body {
 }
 
 .delete-img {
-    width: 10px;
-    height: 10px;
+    width: 30px;
+    height: 30px;
+    justify-content: space-between;
+    align-items: center;
 }
 
 /* File name */
@@ -336,3 +338,53 @@ body {
 .file-list-container {
     display: none;
 }
+
+#file-list {
+    display: grid;
+    gap: 16px;
+}
+.file-list-item {
+    background: #eef0f5;
+    border-radius: 30px;
+    box-shadow: 10px 5px 5px #0060ff;
+    flex-direction: column;
+}
+.card-img {
+    width: 100%;
+    height: 160px;
+    border-radius: 30px 30px 0 0;
+    object-fit: cover;
+}
+.card-info {
+    padding: 12px;
+    flex-grow: 1;
+}
+.card-name {
+    font-weight: 500;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.card-meta {
+    font-size: 12px;
+    color: #666;
+    margin-top: 4px;
+}
+.card-actions {
+    padding: 8px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.card-link {
+    font-size: 16px;
+    color: #0060ff;
+    text-decoration: none;
+}
+.card-link:hover {
+    text-decoration: underline;
+}
+
+
+

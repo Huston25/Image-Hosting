@@ -13,8 +13,8 @@ def save_file(filename:str, post_data:bytes):
 
 def delete_file(filename:str):
     file_path = f'./{IMAGE_DIRECTORY}/{filename}'
-    if os.path.exists(f'./{IMAGE_DIRECTORY}/{file_path}'):
-        os.remove(f'./{IMAGE_DIRECTORY}/{file_path}')
+    if os.path.exists(file_path):
+        os.remove(file_path)
         logging.info(f'Deleted {file_path}')
     else:
         logging.error(f'File {file_path} does not exist')

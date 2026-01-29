@@ -16,7 +16,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     const updateTabStyles = (isImagesPage) => {
-        // const storedFiles = JSON.parse(localStorage.getItem('uploadedImages')) || [];
         if (isImagesPage) {
             uploadTab.classList.remove('upload__tab--active');
             imagesTab.classList.add('upload__tab--active');
@@ -27,7 +26,12 @@ document.addEventListener('DOMContentLoaded', () => {
             uploadTab.classList.add('upload__tab--active');
             uploadForm.style.display = 'flex';
             filesWrapper.style.display = 'none';
-            displayFiles();
+
+            const params = new URLSearchParams(window.location.search)
+            let page = params.get('page') ? params.get('page') : 1;
+            let page_size = params.get('page_size') ? params.get('page_size') : 10;
+
+            displayFiles(page, page_size);
         }
     };
     imagesTab.addEventListener('click', () => {
@@ -40,36 +44,65 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
+    async function displayFiles(page, pageSize){
 
-    const displayFiles = () => {
-        // fetch images from backend
-        const storedFiles = JSON.parse(localStorage.getItem('uploadedImages')) || [];
+        const result = await fetch(`/get_images/?page=${page}&page_size=${pageSize}`)
+        const images = await result.json();
+        console.log('Ответ от сервера:', images);
 
-        if (storedFiles.length !== 0) {
+        if (!Array.isArray(images)) {
+            console.error('Ожидался массив изображений, но сервер вернул:', images);
+            return;
+        }
+
+        if (images.length !== 0) {
             prompt.style.display = 'none';
             filesContainer.style.display = 'grid';
+
             const list = document.getElementById('file-list');
             list.innerHTML = '';
 
-            storedFiles.forEach((fileData, index) => {
+            images.forEach((fileData, index) => {
                 const fileItem = document.createElement('div');
                 fileItem.className = 'file-list-item';
                 fileItem.innerHTML = `
-                    <div class="file-col file-col-name">
-                        <span class="file-icon"><img src="/static/Photo/group.jpg" alt="file_icon"></span>
-                        <span class="file-name">${fileData.name}</span>
-                    </div>
-                    <div class="file-col file-col-url">https://sharefile.xyz/${fileData.name}</div>
-                    <div class="file-col file-col-delete">
-                        <button class="delete-btn" data-index="${index}"><img src="/static/Photo/delete.png" alt="delete_icon"></button>
-                    </div>
+                    <div class="file-list-ite">
+                        <img class="card-img" src="/images/${fileData.filename}" alt="${fileData.original_name}">
+                        <div class="card-info">
+                            <div class="card-name">${fileData.original_name}</div>
+                            <div class="card-meta">${fileData.size} KB • ${fileData.date} • ${fileData.type}</div>
+                        </div>     
+                        <div class="card-actions">
+                            <a target="_blank" href="/images/${fileData.filename}" class="card-link">Open</a>
+                            <button class="delete-btn" data-filename="${fileData.filename}">
+                                <img class="delete-img" src="/static/Photo/delete.png"></button>
+                        </div>
+                        
+                    </div>    
                 `;
+
+
+
                 list.appendChild(fileItem);
             });
 
+            const icons = document.querySelectorAll('.file-list-item');
+            icons.forEach(icon => {
+                icon.addEventListener('mouseover', () => {
+                    icon.style.transform = 'scale(1.5)';
+                    icon.style.zIndex = '10';
+                })
+                icon.addEventListener('mouseout', () => {
+                    icon.style.transform = 'scale(1)';
+                    icon.style.zIndex = '';
+                })
+            })
+
+
+
+
             filesContainer.appendChild(list);
             fileListWrapper.appendChild(filesContainer);
-            addDeleteListeners();
         }
         else{
             filesContainer.style.display = 'none';
@@ -77,57 +110,67 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const addDeleteListeners = () => {
-        document.querySelectorAll('.delete-btn').forEach(button => {
-            button.addEventListener('click', (event) => {
-                // fetch to delete file from server
-                const indexToDelete = parseInt(event.currentTarget.dataset.index);
-                let storedFiles = JSON.parse(localStorage.getItem('uploadedImages')) || [];
-                console.log(storedFiles);
-                if (storedFiles.length === 0){
-                    prompt.style.display = 'flex';
-                }
-                storedFiles.splice(indexToDelete, 1);
-                localStorage.setItem('uploadedImages', JSON.stringify(storedFiles));
-                displayFiles();
-            });
-        });
-    };
 
-    const handleAndStoreFiles = (files) => {
-        if (!files || files.length === 0) {
+    document.addEventListener('click', async (event) => {
+        const btn = event.target.closest('.delete-btn');
+        if (btn) {
+            const filename = btn.dataset.filename;
+            await fetchDelete(filename);
+        }
+    })
+
+
+    async function fetchDelete(filename) {
+        const result = await fetch(`/delete/${filename}`, {
+            method: 'DELETE'
+        })
+        if (result.status !== 204) {
+            alert("Failed to delete file");
+            return;
+
+        }
+        const params = new URLSearchParams(window.location.search)
+        let page = params.get('page') ? params.get('page') : 1;
+        let page_size = params.get('page_size') ? params.get('page_size') : 10;
+
+
+
+        displayFiles(page, page_size)
+
+
+    }
+
+
+
+    async function handleAndStoreFiles(file){
+        if (!file) {
             return;
         }
-        const storedFiles = JSON.parse(localStorage.getItem('uploadedImages')) || [];
         const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
         const MAX_SIZE_MB = 5;
         const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
-        let filesAdded = false;
-        let lastFileName = '';
 
-        for (const file of files) {
             if (!allowedTypes.includes(file.type) || file.size > MAX_SIZE_BYTES) {
-                continue;
+                alert("File type not allowed or file size too large");
+                return
             }
 
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const fileData = { name: file.name, url: event.target.result };
-                storedFiles.push(fileData);
-                localStorage.setItem('uploadedImages', JSON.stringify(storedFiles));
-                updateTabStyles();
-            };
-            reader.readAsDataURL(file);
-            filesAdded = true;
-            lastFileName = file.name;
-        }
+            try {
+                const response = await fetch('/upload', {
+                method: 'POST',
+                headers: {'X-Filename': file.name},
+                body: file,
+                });
+                const data = await response.json();
+                console.log(data)
+                if (currentUploadInput) {
+                    currentUploadInput.value = data.url;
+                    }
 
-        if (filesAdded) {
-            if (currentUploadInput) {
-                currentUploadInput.value = `https://sharefile.xyz/${lastFileName}`;
-            }
-            alert("Files selected successfully! Go to the 'Images' tab to view them.");
-        }
+
+                } catch (error) {
+                console.error('Error during upload:', error);
+                    }
     };
 
     if (copyButton && currentUploadInput) {
@@ -149,30 +192,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     fileUpload.addEventListener('change', (event) => {
-        const file = event.target.files[0];
 
-        if (!file) return;
-
-
-        try {
-            const response = fetch('http://localhost/upload', {
-            method: 'POST',
-            headers: {'FileName': file.name},
-            body: file,
-            });
-
-            if (response.status == 201) {
-                const result = response.json();
-                console.log('File uploaded successfully:', result);
-
-            } else {
-                console.log('Upload failed:', response.statusText);
-            }
-        } catch (error) {
-            console.error('Error during upload:', error);
-        }
-
-        handleAndStoreFiles(event.target.files);
+        handleAndStoreFiles(event.target.files[0]);
         event.target.value = '';
     });
 
@@ -184,7 +205,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     dropzone.addEventListener('drop', (event) => {
-        handleAndStoreFiles(event.dataTransfer.files);
+        handleAndStoreFiles(event.dataTransfer.files[0]);
     });
 
     updateTabStyles();

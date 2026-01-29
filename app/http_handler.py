@@ -4,6 +4,7 @@ import urllib
 from http.server import BaseHTTPRequestHandler
 import logging
 import urllib.parse
+from urllib.parse import parse_qs
 
 from database import save_metadata
 from utils import generate_uniqname
@@ -20,11 +21,15 @@ class MyServer(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urllib.parse.urlparse(self.path)
 
-        logging.info("GET request,\nPath: %s\nHeaders:\n%s\n", str(parsed_path), str(self.headers))
+        logging.info("GET request, path = " + parsed_path.path)
+
+        page = int(parse_qs(parsed_path.query).get('page', [1])[0])
+        page_size = int(parse_qs(parsed_path.query).get('page_size', [10])[0])
+        logging.info(f'page, page_size = {page, page_size}')
 
 
-        if parsed_path.path == '/images':
-            images = get_image_metadata()
+        if parsed_path.path == '/get_images/':
+            images = get_image_metadata(page, page_size)
             images = [
                 {
                     'filename': i[1],
@@ -53,23 +58,25 @@ class MyServer(http.server.BaseHTTPRequestHandler):
 
     def do_POST(self):
         parsed_path = urllib.parse.urlparse(self.path)
-        logging.info(f"POST request, path: %s", parsed_path)
+        logging.info(f"POST request, path: {parsed_path}")
 
 
         if parsed_path.path == '/upload':
             content_length = int(self.headers.get('Content-Length', 0))
-            filename = self.headers.get('FileName', '')
 
             if content_length == 0:
                 return self.send_json({'error': 'No content'}, 404)
 
+            original_filename = self.headers.get('X-FileName', '')
 
-            if not filename:
+
+            if not original_filename:
                 return self.send_json({'error': 'No filename provided'}, 400)
 
 
-            *filename, ext = filename.split('.')
-            filename = '.'.join(filename)
+            base, sep, ext = original_filename.rpartition('.')
+            if not sep or not base or not ext:
+                return self.send_json({'error': 'Invalid filename'}, 400)
             post_data = self.rfile.read(content_length)
 
             try:
@@ -77,15 +84,16 @@ class MyServer(http.server.BaseHTTPRequestHandler):
             except Exception as e:
                 return self.send_json({'error': str(e)}, 400)
 
-            uniqname = f'{generate_uniqname(filename)}.{ext}'
+            uniqname = f'{generate_uniqname(base)}.{ext}'
 
             save_file(uniqname, post_data)
 
-            save_metadata(filename, f'{filename}.{ext}', content_length // 1024, ext)
+            save_metadata(uniqname, original_filename, content_length // 1024, ext)
 
 
 
-            return self.send_json({'result': 'success'}, 201)
+
+            return self.send_json({'result': 'success', 'url': f'http://localhost/images/{uniqname}'}, 201)
 
         else:
             return self.send_json({'error': 'Not Found'}, 404)
@@ -96,7 +104,7 @@ class MyServer(http.server.BaseHTTPRequestHandler):
         parsed_path = urllib.parse.urlparse(self.path)
         logging.info(f'Received DELETE request, path = {parsed_path.path}')
 
-        if self.path.startswith('/images'):
+        if parsed_path.path.startswith('/delete/'):
             filename = parsed_path.path.split('/')[2]
             try:
                 delete_file(filename)
@@ -106,7 +114,7 @@ class MyServer(http.server.BaseHTTPRequestHandler):
                 self.send_json({'error': str(e)}, 404)
 
     def send_json(self, data:dict | list, status_code=200):
-        self.send_response(200)
+        self.send_response(status_code)
         self.send_header("Content-type", "application/json")
         self.end_headers()
         self.wfile.write(json.dumps(data).encode())
