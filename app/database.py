@@ -1,4 +1,5 @@
 import logging
+
 from config import DB_CONFIG
 import psycopg
 from psycopg import Connection
@@ -6,6 +7,7 @@ from psycopg import Connection
 logger = logging.getLogger(__name__)
 
 def get_db_connection() -> Connection:
+    """Establish and return PostgreSQL database connection"""
 
     try:
         db = psycopg.connect(**DB_CONFIG)
@@ -15,6 +17,7 @@ def get_db_connection() -> Connection:
         raise
 
 def execute_query(query, log_success, log_fail, params=None):
+    """Execute write operations (INSERT, DELETE, UPDATE) with error handling"""
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
@@ -27,6 +30,7 @@ def execute_query(query, log_success, log_fail, params=None):
 
 
 def fetch_query(query, params=None):
+    """Execute read operations and return query results"""
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
@@ -39,6 +43,7 @@ def fetch_query(query, params=None):
 
 
 def create_tables():
+    """Create the images table if it doesn't exist"""
     query = """CREATE TABLE IF NOT EXISTS images (
                     id SERIAL PRIMARY KEY,
                     filename TEXT NOT NULL,
@@ -53,6 +58,7 @@ def create_tables():
 
 
 def save_metadata(filename, original_name, size, file_type):
+    """Save image metadata to database after successful upload"""
     query = """
     INSERT INTO images (filename, original_name, size, file_type)
     VALUES (%s, %s, %s, %s)
@@ -62,6 +68,7 @@ def save_metadata(filename, original_name, size, file_type):
     execute_query(query, log_success, log_fail, (filename, original_name, size, file_type))
 
 def delete_metadata(filename):
+    """Remove image metadata from database"""
     query = """
         DELETE FROM images WHERE filename = %s
     """
@@ -71,6 +78,7 @@ def delete_metadata(filename):
 
 
 def get_image_metadata(page=1, page_size=10) -> list:
+    """Retrieve paginated list of image metadata"""
 
     offset = (page - 1) * page_size
 
@@ -80,6 +88,7 @@ def get_image_metadata(page=1, page_size=10) -> list:
     return fetch_query(query,(page_size, offset))
 
 def get_metadata(filename) -> list:
+    """Get metadata for a specific image by filename"""
     query = """
         SELECT * FROM images WHERE filename = %s
     """
@@ -87,3 +96,10 @@ def get_metadata(filename) -> list:
     if not result:
         raise Exception(f'Failed to fetch metadata for image {filename}')
     return result[0]
+
+def get_images_count() -> int:
+    """Return total count of images in database"""
+    query = "SELECT COUNT(*) FROM images"
+    result = fetch_query(query)
+    return result[0][0]
+

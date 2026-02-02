@@ -7,6 +7,7 @@ from http_handler import MyServer
 
 
 def run():
+    """Main function that starts the HTTP server, initializes logging, creates database tables, and handles server lifecycle"""
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
     create_tables()

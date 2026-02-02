@@ -16,3 +16,4 @@ MAX_FILE_SIZE = 5 * 1024 * 1024
 HOST, PORT = ("0.0.0.0", 8000)
 DEBUG = True
 IMAGE_DIRECTORY = "images"
+BACKUP_DIRECTORY = os.getenv("BACKUP_DIRECTORY", "backups")

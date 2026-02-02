@@ -16,22 +16,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     const updateTabStyles = (isImagesPage) => {
+        """Manage tab switching between upload and images views"""
         if (isImagesPage) {
             uploadTab.classList.remove('upload__tab--active');
             imagesTab.classList.add('upload__tab--active');
             uploadForm.style.display = 'none';
             filesWrapper.style.display = 'flex';
+            
+            // Загружаем изображения при переключении на вкладку Images
+            displayFiles(1, 10);
         } else {
             imagesTab.classList.remove('upload__tab--active');
             uploadTab.classList.add('upload__tab--active');
             uploadForm.style.display = 'flex';
             filesWrapper.style.display = 'none';
-
-            const params = new URLSearchParams(window.location.search)
-            let page = params.get('page') ? params.get('page') : 1;
-            let page_size = params.get('page_size') ? params.get('page_size') : 10;
-
-            displayFiles(page, page_size);
+            
+            // Удаляем пагинацию при переключении на вкладку Upload
+            const existingPaginations = document.querySelectorAll('nav[aria-label="Images pagination"]');
+            existingPaginations.forEach(p => p.remove());
         }
     };
     imagesTab.addEventListener('click', () => {
@@ -45,15 +47,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     async function displayFiles(page, pageSize){
+        """Fetch and render images with pagination"""
+        console.log('displayFiles called with page:', page, 'pageSize:', pageSize); // Отладка
 
         const result = await fetch(`/get_images/?page=${page}&page_size=${pageSize}`)
-        const images = await result.json();
-        console.log('Ответ от сервера:', images);
+        const data = await result.json();
+        console.log('Ответ от сервера:', data);
 
-        if (!Array.isArray(images)) {
-            console.error('Ожидался массив изображений, но сервер вернул:', images);
+        if (!data.images || !Array.isArray(data.images)) {
+            console.error('Ожидался массив изображений, но сервер вернул:', data);
             return;
         }
+
+        const images = data.images;
+        const totalCount = data.total;
 
         if (images.length !== 0) {
             prompt.style.display = 'none';
@@ -78,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <img class="delete-img" src="/static/Photo/delete.png"></button>
                         </div>
                         
-                    </div>    
+                    </div>   
                 `;
 
 
@@ -107,11 +114,86 @@ document.addEventListener('DOMContentLoaded', () => {
         else{
             filesContainer.style.display = 'none';
             prompt.style.display = 'flex';
+            prompt.textContent = 'No images uploaded yet.';
+        }
+        
+        // Генерируем пагинацию через JS только для вкладки Images
+        if (totalCount > 0) {
+            generatePagination();
+            const totalPages = Math.ceil(totalCount / pageSize);
+            renderPagination(page, totalPages);
+        } else {
+            // Удаляем пагинацию если нет изображений
+            const existingPaginations = document.querySelectorAll('nav[aria-label="Images pagination"]');
+            existingPaginations.forEach(p => p.remove());
         }
     };
 
+    function generatePagination() {
+        """Create pagination controls dynamically"""
+        // Удаляем существующую пагинацию (все экземпляры)
+        const existingPaginations = document.querySelectorAll('nav[aria-label="Images pagination"]');
+        existingPaginations.forEach(p => p.remove());
+        
+        // Создаем новую только если есть filesContainer
+        if (!filesContainer) return;
+        
+        const paginationNav = document.createElement('nav');
+        paginationNav.setAttribute('aria-label', 'Images pagination');
+        paginationNav.innerHTML = '<ul class="pagination justify-content-center" id="pagination"></ul>';
+        
+        // Вставляем внутрь filesContainer после фотографий
+        filesContainer.appendChild(paginationNav);
+    }
+
+    function renderPagination(currentPage, totalPages) {
+        """Render pagination buttons with active states"""
+        const pagination = document.getElementById('pagination');
+        pagination.innerHTML = '';
+
+        const prevLi = document.createElement('li');
+        prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+        prevLi.innerHTML = `<span class="page-link">Previous</span>`;
+        if (currentPage > 1) {
+            prevLi.innerHTML = `<a class="page-link" href="#" data-page="${currentPage - 1}">Previous</a>`;
+        }
+        pagination.appendChild(prevLi);
+
+
+        for (let i = 1; i <= totalPages; i++) {
+            const li = document.createElement('li');
+            li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+            li.innerHTML = i === currentPage
+                ? `<span class="page-link" data-page="${i}">${i}<span class="sr-only">(current)</span></span>`
+                : `<a class="page-link" href="#" data-page="${i}">${i}</a>`;
+            pagination.appendChild(li);
+        }
+
+        const nextLi = document.createElement('li');
+        nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+        nextLi.innerHTML = `<span class="page-link" data-page="${currentPage + 1}">Next</span>`;
+        if (currentPage < totalPages) {
+            nextLi.innerHTML = `<a class="page-link" href="#" data-page="${currentPage + 1}">Next</a>`;
+        }
+        pagination.appendChild(nextLi);
+
+
+    }
+
 
     document.addEventListener('click', async (event) => {
+        // Обработка кликов по пагинации
+        console.log('Click detected on:', event.target); // Отладка
+        if (event.target.matches('.page-link[data-page]')) {
+            console.log('Pagination link clicked!'); // Отладка
+            event.preventDefault();
+            const page = parseInt(event.target.dataset.page);
+            console.log('Loading page:', page); // Отладка
+            displayFiles(page, 10);
+            return;
+        }
+        
+        // Обработка кликов по кнопкам удаления
         const btn = event.target.closest('.delete-btn');
         if (btn) {
             const filename = btn.dataset.filename;
@@ -121,21 +203,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     async function fetchDelete(filename) {
+        """Send delete request for image removal"""
         const result = await fetch(`/delete/${filename}`, {
             method: 'DELETE'
         })
         if (result.status !== 204) {
             alert("Failed to delete file");
             return;
-
         }
-        const params = new URLSearchParams(window.location.search)
-        let page = params.get('page') ? params.get('page') : 1;
-        let page_size = params.get('page_size') ? params.get('page_size') : 10;
 
-
-
-        displayFiles(page, page_size)
+        // После удаления перезагружаем текущую страницу
+        displayFiles(1, 10)
 
 
     }
@@ -143,6 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     async function handleAndStoreFiles(file){
+        """Process file uploads with client-side validation"""
         if (!file) {
             return;
         }
@@ -208,5 +287,5 @@ document.addEventListener('DOMContentLoaded', () => {
         handleAndStoreFiles(event.dataTransfer.files[0]);
     });
 
-    updateTabStyles();
+    updateTabStyles(true);
 });
